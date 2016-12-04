@@ -23,7 +23,7 @@ The originator describes it as follows:
 >
 > -- <http://daringfireball.net/projects/markdown/>
 
-Travis-ci.org test status: [![Build Status](https://secure.travis-ci.org/trentm/python-markdown2.png)](http://travis-ci.org/trentm/python-markdown2)
+Travis-ci.org test status: [![Build Status](https://travis-ci.org/cwacha/artifactd.svg?branch=master)](https://travis-ci.org/cwacha/artifactd)
 
 # Quick Usage
 ## Deploy Artifacts

@@ -65,30 +65,34 @@ def test_deploy_snapshot(httpd):
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test.pkg" % PORT, data=sample_document())
 	assert response.status_code == 200
 
+def safe_remove(filename):
+	if os.path.isfile(filename):
+		os.remove(filename)
+
 def test_deploy_release(httpd):
-	os.remove(BASEDIR+"/src/opt/artifactd/var/www/artifacts/release/test.pkg")
+	safe_remove(BASEDIR+"/src/opt/artifactd/var/www/artifacts/release/test.pkg")
 	response = requests.put("http://localhost:%d/artifacts/release/test.pkg" % PORT, data=sample_document())
 	assert response.status_code == 200
 
 def test_deploy_release_overwrite(httpd):
-	os.remove(BASEDIR+"/src/opt/artifactd/var/www/artifacts/release/test.pkg")
+	safe_remove(BASEDIR+"/src/opt/artifactd/var/www/artifacts/release/test.pkg")
 	response = requests.put("http://localhost:%d/artifacts/release/test.pkg" % PORT, data=sample_document())
 	response = requests.put("http://localhost:%d/artifacts/release/test.pkg" % PORT, data=sample_document())
 	assert response.status_code == 409
 
 def test_deploy_snapshot_maintenance(httpd):
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-1.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-2.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-3.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-4.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-5.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-6.pkg" % PORT, data=sample_document())
-	time.sleep(.8)
+	time.sleep(1)
 	response = requests.put("http://localhost:%d/artifacts/snapshot/test/1/test-7.pkg" % PORT, data=sample_document())
 
 	actual = os.listdir(BASEDIR+"/src/opt/artifactd/var/www/artifacts/snapshot/test/1")
