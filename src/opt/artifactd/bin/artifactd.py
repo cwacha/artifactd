@@ -367,7 +367,6 @@ class webserver():
 		self.opts['port'] = 8000
 		if isinstance(opts, dict):
 			self.opts.update(opts)
-			print opts
 
 		self.server = None
 		self.logger = logging.getLogger()
@@ -420,10 +419,8 @@ def main(argv):
 	opts['port'] = 8000
 	configparser = ConfigParser.ConfigParser()
 	if os.path.isfile(CONFIGFILE):
-		print "reading config"
 		configparser.read(CONFIGFILE)
 		opts['port'] = int(configparser.get("config", "port"))
-		print "port: ", opts['port']
 
 	parser = optparse.OptionParser(usage="%prog [OPTIONS]", version="%prog, Version "+VERSION)
 	parser.remove_option("-h")
