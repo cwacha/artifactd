@@ -362,11 +362,12 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 				format%args))
 
 class webserver():
-	def __init__(self, options=None):
+	def __init__(self, opts=None):
 		self.opts = {}
 		self.opts['port'] = 8000
-		if isinstance(options, dict):
-			self.opts.update(options)
+		if isinstance(opts, dict):
+			self.opts.update(opts)
+			print opts
 
 		self.server = None
 		self.logger = logging.getLogger()
@@ -419,8 +420,10 @@ def main(argv):
 	opts['port'] = 8000
 	configparser = ConfigParser.ConfigParser()
 	if os.path.isfile(CONFIGFILE):
+		print "reading config"
 		configparser.read(CONFIGFILE)
 		opts['port'] = int(configparser.get("config", "port"))
+		print "port: ", opts['port']
 
 	parser = optparse.OptionParser(usage="%prog [OPTIONS]", version="%prog, Version "+VERSION)
 	parser.remove_option("-h")
@@ -428,7 +431,7 @@ def main(argv):
 	parser.add_option("-h", "--help", dest="help", action="store_true")
 	parser.add_option("--version", action="version")
 	parser.add_option("-v", "--verbose", dest="verbose", action="store_true")
-	parser.add_option("--port", dest="port", type="int", default=8000)
+	parser.add_option("--port", dest="port", type="int")
 
 	(options, args) = parser.parse_args(argv)
 
@@ -440,19 +443,7 @@ def main(argv):
 		opts['port'] = int(options.port)
 
 	server = webserver(opts)
-	server.run()
-	#server = BaseHTTPServer.HTTPServer
-	#server_address = ("", port)
-	#httpd = server(server_address, ArtifactHandler)
-
-	#logger.info("Server Starts - %s:%s" % server_address)
-	#try:
-	#	os.chdir(WWW_BASEDIR)
-	#	httpd.serve_forever()
-	#except KeyboardInterrupt:
-	#	pass
-	#httpd.server_close()
-	#logger.info("Server Stops - %s:%s" % server_address)
+	server.startup()
 
 if __name__ == '__main__':
 	sys.exit(main(sys.argv[1:]))
