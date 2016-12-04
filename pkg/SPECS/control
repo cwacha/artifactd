@@ -1,0 +1,12 @@
+Package: artifactd
+Version: %version%-%revision%
+Architecture: all
+Priority: optional
+Section: extras
+Maintainer: Clemens Wacha <clemens@wacha.ch>
+Homepage: https://wacha.ch/artifactd
+Depends: python
+Description: Mini Artifactory
+ Mini artifactory provides a simple file storage system
+ to keep artifacts. It supports snapshot and release trees
+ and automatically removes old snapshots.
