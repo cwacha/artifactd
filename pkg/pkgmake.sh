@@ -32,6 +32,7 @@ import() {
 	[ -d BUILD ] && return
 	mkdir -p BUILD
 	cp -a $BASEDIR/../src/* BUILD
+	cp $BASEDIR/../LICENSE.md BUILD/opt/artifactd
 
 	rm -rf BUILD/opt/artifactd/var/www/snapshot/*
 	rm -rf BUILD/opt/artifactd/var/www/release/*
