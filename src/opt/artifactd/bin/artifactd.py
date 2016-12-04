@@ -361,6 +361,40 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 				self.log_date_time_string(),
 				format%args))
 
+class webserver():
+	def __init__(self, options=None):
+		self.opts = {}
+		self.opts['port'] = 8000
+		if isinstance(options, dict):
+			self.opts.update(options)
+
+		self.server = None
+		self.logger = logging.getLogger()
+		self.ready = False
+
+	def startup(self):
+		server_address = ("", self.opts['port'])
+		self.server = BaseHTTPServer.HTTPServer(server_address, ArtifactHandler)
+
+		self.logger.info("Server Starts - %s:%s" % server_address)
+		try:
+			os.chdir(WWW_BASEDIR)
+			self.ready = True
+			self.server.serve_forever()
+		except KeyboardInterrupt:
+			pass
+		self.server.server_close()
+		self.logger.info("Server Stops - %s:%s" % server_address)
+
+	def shutdown(self):
+		if self.server:
+			self.ready = False
+			self.server.shutdown()
+
+	def isReady(self):
+		return self.ready
+
+
 def usage():
 #   print "1        10        20        30        40        50        60        70       80"
 #   print "|...'....|....'....|....'....|....'....|....'....|....'....|....'....|....'....|"
@@ -381,11 +415,12 @@ def main(argv):
 	except (ConfigParser.NoSectionError) as (e):
 		print "ERROR: Cannot load %s: %s" % (LOGGINGCONFIGFILE, e)
 
-	port = 8000
+	opts = {}
+	opts['port'] = 8000
 	configparser = ConfigParser.ConfigParser()
 	if os.path.isfile(CONFIGFILE):
 		configparser.read(CONFIGFILE)
-		port = int(configparser.get("config", "port"))
+		opts['port'] = int(configparser.get("config", "port"))
 
 	parser = optparse.OptionParser(usage="%prog [OPTIONS]", version="%prog, Version "+VERSION)
 	parser.remove_option("-h")
@@ -393,7 +428,7 @@ def main(argv):
 	parser.add_option("-h", "--help", dest="help", action="store_true")
 	parser.add_option("--version", action="version")
 	parser.add_option("-v", "--verbose", dest="verbose", action="store_true")
-	parser.add_option("--port", action="store", dest="port")
+	parser.add_option("--port", dest="port", type="int", default=8000)
 
 	(options, args) = parser.parse_args(argv)
 
@@ -402,20 +437,22 @@ def main(argv):
 		return 1
 		
 	if options.port:
-		port = int(options.port)
+		opts['port'] = int(options.port)
 
-	server = BaseHTTPServer.HTTPServer
-	server_address = ("", port)
-	httpd = server(server_address, ArtifactHandler)
+	server = webserver(opts)
+	server.run()
+	#server = BaseHTTPServer.HTTPServer
+	#server_address = ("", port)
+	#httpd = server(server_address, ArtifactHandler)
 
-	logger.info("Server Starts - %s:%s" % server_address)
-	try:
-		os.chdir(WWW_BASEDIR)
-		httpd.serve_forever()
-	except KeyboardInterrupt:
-		pass
-	httpd.server_close()
-	logger.info("Server Stops - %s:%s" % server_address)
+	#logger.info("Server Starts - %s:%s" % server_address)
+	#try:
+	#	os.chdir(WWW_BASEDIR)
+	#	httpd.serve_forever()
+	#except KeyboardInterrupt:
+	#	pass
+	#httpd.server_close()
+	#logger.info("Server Stops - %s:%s" % server_address)
 
 if __name__ == '__main__':
 	sys.exit(main(sys.argv[1:]))
