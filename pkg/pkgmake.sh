@@ -87,6 +87,7 @@ ipk() {
 	rm control.tar.gz data.tar.gz debian-binary
 
 	cd $BASEDIR
+	ls -1 RPMS/x86_64/*.ipk
 }
 
 deploy() {

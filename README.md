@@ -1,6 +1,6 @@
 # Welcome to artifactd
 
-Artifactd is a lightweight implementation of an artifact storage system
+Artifactd is a lightweight python implementation of an artifact storage system
 similar to jFrog's [Artifactory](https://www.jfrog.com/open-source/) or
 Sonatype's [Nexus](http://www.sonatype.org/nexus/). It provides a two
 repositories for 'release' and 'snapshot' artifacts. In the 'release'
