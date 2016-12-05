@@ -100,7 +100,7 @@ ipk() {
 
 rpm() {
 	echo "##### building rpm"
-	[ ! -x /bin/rpmbuild ] && echo "missing rpmbuild. Skipping." && return
+	[ ! `command -v rpmbuild` ] && echo "missing rpmbuild. Skipping." && return
 	cd $BASEDIR
 
 	rpmbuild --define "_topdir $BASEDIR" --define "app_version $VERSION" --define "app_revision $REVISION" --buildroot=$BASEDIR/BUILD -bb SPECS/code.spec
