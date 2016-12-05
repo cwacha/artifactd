@@ -9,14 +9,16 @@ script: pytest
 before_deploy:
   - travis_retry sudo apt-get install -qq rpm
   - ./pkg/pkgmake.sh dist
-  - export PKG_FILE_ZIP=$(ls -1 ./pkg/RPMS/x86_64/*.zip 2>/dev/null)
-  - export PKG_FILE_IPK=$(ls -1 ./pkg/RPMS/x86_64/*.ipk 2>/dev/null)
+  - export PKG_FILE_ZIP=$(ls -1 ./pkg/RPMS/x86_64/*.zip)
+  - export PKG_FILE_IPK=$(ls -1 ./pkg/RPMS/x86_64/*.ipk)
+  - export PKG_FILE_RPM=$(ls -1 ./pkg/RPMS/x86_64/*.rpm)
 deploy:
   provider: releases
   api_key: $GH_TOKEN
   file:
     - "${PKG_FILE_ZIP}"
     - "${PKG_FILE_IPK}"
+    - "${PKG_FILE_RPM}"
   skip_cleanup: true
   on:
     tags: true
