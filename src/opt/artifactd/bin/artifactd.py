@@ -300,6 +300,7 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 				'.jpe' : 'jpg',
 				'.json' : 'js',
 				'.dmg' : 'pkg',
+				'.ipk' : 'pkg',
 				'.phtml' : 'php',
 				'.m3u8' : 'm3u',
 				'.pls' : 'm3u',

@@ -2,9 +2,10 @@
 
 TMP=`pwd`; cd `dirname $0`; BASEDIR=`pwd`; cd $TMP
 
-ARTIFACTBASE=http://localhost:4070/artifacts/snapshot
+DEPLOYBASE=${DEPLOYBASE-http://localhost:4070/artifacts/snapshot}
+
 all() {
-	download && import && ipk || rpm
+	download && import && zip && ipk && rpm
 }
 
 dist() {
@@ -32,6 +33,7 @@ import() {
 	[ -d BUILD ] && return
 	mkdir -p BUILD
 	cp -a $BASEDIR/../src/* BUILD
+	cp $BASEDIR/VERSION BUILD/opt/artifactd
 	cp $BASEDIR/../LICENSE.md BUILD/opt/artifactd
 
 	rm -rf BUILD/opt/artifactd/var/www/snapshot/*
@@ -41,6 +43,7 @@ import() {
 	find BUILD -depth -name ".DS_Store" -exec rm {} \;
 	find BUILD -depth -name "._*" -exec rm {} \;
 	find BUILD -depth -name ".svn" -exec rm -rf {} \;
+	find BUILD -depth -name ".gitignore" -exec rm -rf {} \;
 
 	chown -Rf 0:0 BUILD/*
 	chmod o+rx BUILD/opt/artifactd/
@@ -49,13 +52,17 @@ import() {
 	return 0
 }
 
-rpm() {
-	echo "##### building rpm"
+zip() {
+	echo "##### building zip"
 	cd $BASEDIR
 
-	rpmbuild --define "_topdir $BASEDIR" --define "my_version $VERSION" --define "my_revision $REVISION" --buildroot=$BASEDIR/BUILD -bb SPECS/code.spec
+	PACKAGEFILE=artifactd-${VERSION}-${REVISION}.zip
 
-	cp $BASEDIR/../vendor/*.rpm $BASEDIR/RPMS/x86_64
+	mkdir -p RPMS/x86_64
+	cd BUILD/opt
+	command zip -qyr $BASEDIR/RPMS/x86_64/$PACKAGEFILE artifactd
+	cd $BASEDIR
+	ls -1sh RPMS/x86_64/*.zip
 }
 
 ipk() {
@@ -88,20 +95,28 @@ ipk() {
 	rm control.tar.gz data.tar.gz debian-binary
 
 	cd $BASEDIR
-	ls -1 RPMS/x86_64/*.ipk
+	ls -1sh RPMS/x86_64/*.ipk
+}
+
+rpm() {
+	echo "##### building rpm"
+	[ ! -x /bin/rpmbuild ] && echo "missing rpmbuild. Skipping." && return
+	cd $BASEDIR
+
+	rpmbuild --define "_topdir $BASEDIR" --define "app_version $VERSION" --define "app_revision $REVISION" --buildroot=$BASEDIR/BUILD -bb SPECS/code.spec
 }
 
 deploy() {
-	echo "##### deploying"
+	echo "##### deploying to $DEPLOYBASE"
 
-	FULLFILES=`ls -1 $BASEDIR/RPMS/x86_64/*.{rpm,ipk} 2>/dev/null`
+	FULLFILES=`ls -1 $BASEDIR/RPMS/x86_64/*.{rpm,ipk,zip} 2>/dev/null`
 	[ -z "$FULLFILES" ] && echo "No packages found. Stop." && return 1
 	for FULLFILE in $FULLFILES; do
 		FILE=`basename "$FULLFILE"`
 		COMPONENT=`echo $FILE | cut -f1 -d-`
 		VERSION=`echo $FILE | cut -f2 -d-`
-		TARGET=$ARTIFACTBASE/$COMPONENT/$VERSION/$FILE
-		curl -s -T $FULLFILE -X PUT $TARGET | grep "Message:"
+		TARGET=$DEPLOYBASE/$COMPONENT/$VERSION/$FILE
+		curl -sS -T $FULLFILE -X PUT $TARGET | grep "Message:"
 	done
 }
 

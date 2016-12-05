@@ -1,0 +1,17 @@
+[Unit]
+Description=Artifactd
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/opt/artifactd/bin/artifactd.sh start
+ExecStop=/opt/artifactd/bin/artifactd.sh stop
+ExecReload=/opt/artifactd/bin/artifactd.sh restart
+PIDFile=/opt/artifactd/var/run/artifactd.pid
+Restart=on-failure
+RestartSec=30s
+
+[Install]
+WantedBy=multi-user.target
+
+
