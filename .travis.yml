@@ -10,7 +10,7 @@ before_deploy:
   - ./pkg/pkgmake.sh dist
 deploy:
   provider: releases
-  api_key: a861dba7a799e452648e137e3c758fd94b408c96
+  api_key: $GH_TOKEN
   file:
     - ./pkg/RPMS/x86_64/artifactd-*.zip
     - ./pkg/RPMS/x86_64/artifactd-*.ipk
