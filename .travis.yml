@@ -7,6 +7,7 @@ install: "pip install -r test/requirements.txt"
 script: pytest
 
 before_deploy:
+  - travis_retry sudo apt-get install -qq rpm
   - ./pkg/pkgmake.sh dist
   - export PKG_FILE_ZIP=$(ls -1 ./pkg/RPMS/x86_64/*.zip 2>/dev/null)
   - export PKG_FILE_IPK=$(ls -1 ./pkg/RPMS/x86_64/*.ipk 2>/dev/null)
