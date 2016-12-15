@@ -12,7 +12,11 @@ AutoReqProv:	no
 BuildRoot:	%_topdir/BUILD
 
 %description
-Artifactd adf adf asdf asf 
+Artifactd is a lightweight python implementation of an artifact storage
+system similar to jFrog's Artifactory or Sonatype's [Nexus]. It provides
+two repositories for 'release' and 'snapshot' artifacts:
+  - Inside 'release', artifacts are write-once and cannot be overwritten
+  - Inside 'snapshot' only the 5 most recent artifacts are kept
 
 
 %files

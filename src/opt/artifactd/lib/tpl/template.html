@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Artifactd</title>
+
+	<link type="text/css" href="${baseurl}theme/css/bootstrap.min.css" rel="stylesheet" />
+	<link type="image/x-icon" href="${baseurl}favicon.ico" rel="shortcut icon"/>
+	<script type="text/javascript" src="${baseurl}theme/js/jquery-1.11.0.min.js"></script>
+	<script type="text/javascript" src="${baseurl}theme/js/bootstrap.min.js"></script>
+</head>
+<body>
+	<div class="container" role="main">
+		<? include(${viewdocument}) ?>
+	</div>
+	
+	<?php if(array_get($conf, 'debug', false) == true) 
+		include($basedir . '/lib/views/internal/debug.i.php');
+	?>
+
+</body>
+</html>

@@ -1,0 +1,51 @@
+<div id="debug">
+	<div class="simple-container blue type1" style="display: block;">
+		<div class="container-title"><div class="title">Debug</div></div>
+		<div class="container-body">
+			<table class="kontakt_tabelle">
+				<tr><th>Key</th><th>Value</th></tr>
+				<tr><td>baseurl</td><td><?php echo $baseurl ?></td></tr>
+				<tr><td>baseuri</td><td><?php echo $baseuri ?></td></tr>
+				<tr><td>webappuri</td><td><?php echo $webappuri ?></td></tr>
+				<tr><td>basedir</td><td><?php echo $basedir ?></td></tr>
+				<tr><td>viewname</td><td><?php echo $viewname ?></td></tr>
+				<tr><td>viewdocument</td><td><?php echo $viewdocument ?></td></tr>
+			</table>
+		</div>
+	</div>
+</div>
+
+<div class="simple-container grey type10" style="display: block;">
+	<div class="container-title"><div class="title">Request</div></div>
+	<div class="container-body">
+		<pre>
+request: <?php echo print_r($request, true) ?><br/>
+		</pre>
+	</div>
+</div>
+
+
+<div class="simple-container red type1" style="display: block">
+	<div class="container-title"><div class="title">Error</div></div>
+	<div class="container-body">
+		<div class="error">error</div>
+	</div>
+</div>
+<div class="simple-container blue type1" style="display: block;">
+	<div class="container-title"><div class="title">Information</div></div>
+	<div class="container-body">
+		<div class="error">error</div>
+		<div class="warn">warning</div>
+		<div class="info">information</div>
+		<div class="question">question</div>
+	</div>
+</div>
+<div class="simple-container grey type1" style="display: block;">
+	<div class="container-title"><div class="title">Information</div></div>
+	<div class="container-body">
+		<div class="error">error</div>
+		<div class="warn">warning</div>
+		<div class="info">information</div>
+		<div class="question">question</div>
+	</div>
+</div>

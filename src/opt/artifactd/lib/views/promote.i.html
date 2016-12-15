@@ -1,0 +1,16 @@
+		<div class="page-header">
+			<h1>Promote package</h1>
+		</div>
+		
+		<div class="panel panel-primary">
+			<div class="panel-heading">
+				<h3 class="panel-title">${filename}</h3>
+			</div>
+			<div class="panel-body">
+			Are you sure to promote package <code>${filename}</code> from snapshots to releases? This action cannot be undone.
+			<div class="control-group pull-right clear-fix"> 
+				<a class="btn btn-primary btn-md" href="?action=promote&filename=${filename}&parentpath=${parentpath}" role="button">Promote</a>
+				<a class="btn btn-default btn-md" href="${parentpath}" role="button">Cancel</a>
+			</div>
+			</div>
+		</div>

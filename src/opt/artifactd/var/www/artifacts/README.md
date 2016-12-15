@@ -1,12 +1,11 @@
 # Welcome to artifactd
 
-Artifactd is a lightweight python implementation of an artifact storage system
-similar to jFrog's [Artifactory](https://www.jfrog.com/open-source/) or
-Sonatype's [Nexus](http://www.sonatype.org/nexus/). It provides a two
-repositories for 'release' and 'snapshot' artifacts. In the 'release'
-repository artifacts are write-once and cannot be overwritten. In the
-'snapshot' repository old artifacts are remove automatically. It usually
-keeps the most recent 5 snapshots (configurable).
+Artifactd is a lightweight python implementation of an artifact storage
+system similar to jFrog's [Artifactory](https://www.jfrog.com/open-source/)
+or Sonatype's [Nexus](http://www.sonatype.org/nexus/). It provides two
+repositories for 'release' and 'snapshot' artifacts:
+  - Inside 'release', artifacts are write-once and cannot be overwritten
+  - Inside 'snapshot' only the 5 most recent artifacts are kept
 
 In addition it supports the display of README.md file in a folder (like
 this one). Its content is Markdown which is also used by

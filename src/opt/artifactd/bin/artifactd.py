@@ -22,14 +22,19 @@ try:
 except ImportError:
 	from StringIO import StringIO
 import markdown2
+import urlparse
+import re
+
+import pprint
+
+pp = pprint.PrettyPrinter()
 
 CONFIGFILE=os.path.join(BASEDIR, "etc/artifactd.conf")
 LOGGINGCONFIGFILE=os.path.join(BASEDIR, "etc/logging.conf")
 WWW_BASEDIR=os.path.realpath(os.path.join(BASEDIR, "var/www"))
-PUT_BASEDIR=os.path.realpath(os.path.join(WWW_BASEDIR, "artifacts"))
 HEADERFILE=os.path.realpath(os.path.join(WWW_BASEDIR, "theme/header.html"))
 FOOTERFILE=os.path.realpath(os.path.join(WWW_BASEDIR, "theme/footer.html"))
-KEEPSNAPSHOTNUM=5
+PUT_BASEDIR=os.path.realpath(os.path.join(WWW_BASEDIR, "artifacts"))
 
 ERRORLOG=os.path.join(BASEDIR, "var/log/artifactd.log")
 ACCESSLOG=os.path.join(BASEDIR, "var/log/access.log")
@@ -61,10 +66,54 @@ class ArtifactException(Exception):
 
 class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 	def __init__(self, request, client_address, server):
+		self.opts = server.opts
+		self.keepSnapshotNum = int(self.opts['keep_snapshot_num'])
+		self.snapshotClusterDurationSec = int(self.opts['snapshot_cluster_duration_sec'])
+		
 		self.template_map = {}
 		self.template_map['version'] = VERSION
 		self.accesslog = logging.getLogger("access")
 		SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, request, client_address, server)
+
+	def do_GET(self):
+		"""Serve a GET request."""
+		
+		self.parseRequest()
+		action = self.getAction()
+		viewname = self.getViewName()
+		
+		f = None
+		if(viewname == '/promote'):
+			self.template_map['parentpath'] = self.query.get('parentpath', '/')
+			self.template_map['filename'] = self.query.get('filename', '')
+
+			if(action == 'promote'):
+				print "action: promote"
+				fullfile = os.path.realpath(WWW_BASEDIR + self.query.get('filename', ''))
+				try:
+					self.promoteFile(fullfile)
+				except ArtifactException as e:
+					logger.error("%s: %s", type(e).__name__, e.__str__())
+					self.send_error(e.code, e.message)
+					return
+				self.send_response(302)
+				self.send_header("Location", self.query.get('parentpath', '/'))
+				self.end_headers()
+				return
+				
+			f = self.renderAndRedirect(viewname)
+			
+		if(action == 'debug'):
+			pass
+				
+		if not f:
+			f = self.send_head()
+		if f:
+			self.copyfile(f, self.wfile)
+			f.close()
+	
+	def do_POST(self):
+		return self.do_GET()
 
 	def do_PUT(self):
 		"""Respond to PUT request"""
@@ -124,37 +173,91 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 		if tempfile is not None and os.path.isfile(tempfile):
 			os.remove(tempfile)
 		logger.error("Deploy failed: %s", self.path)
-			
-	def verify_put_path(self, path):
-		path_rel = os.path.join(PUT_BASEDIR, "release", "")
-		path_snp = os.path.join(PUT_BASEDIR, "snapshot", "")
 		
-		if not (path.startswith(path_rel) or path.startswith(path_snp)):
-			raise ArtifactException(403, "Forbidden: Failed to deploy. PUT allowed into '/artifacts/snapshot' or '/artifact/release' folders only (was: %s)" % (self.path))
+	def parseRequest(self):
+		o = urlparse.urlparse(self.path)
+		self.query = dict(urlparse.parse_qsl(o.query, keep_blank_values=True))
+		self.requesturi = o.path
+		self.baseuri = "/"
+		self.baseurl = "http://%s%s" % (self.headers.getheader('Host', self.server.server_name), self.baseuri)
+		self.template_map.update(self.query)
+		
+	def renderAndRedirect(self, viewname):
+		if viewname == self.getViewName():
+			return self.render(viewname)
 
-		if os.path.isdir(path):
-			raise ArtifactException(409, "Conflict: Failed to deploy. A directory already exists with that name: '%s'" % (path))
-			
-		if path.startswith(path_rel) and os.path.isfile(path):
-			raise ArtifactException(409, "Conflict: Failed to deploy. Cannot overwrite artifacts in 'release' folder")
-
-	def remove_old_snapshots(self, path):
-		path_snp = os.path.join(PUT_BASEDIR, "snapshot", "")
-
-		if not path.startswith(path_snp):
+		logger.debug("redirect=%s" % viewname)
+		self.send_response(302)
+		self.send_header("Location", viewname)
+		self.end_headers()
+		return None
+	
+	def render(self, viewname):
+		logger.debug("render=%s" % viewname)
+		action = self.getAction()
+		self.template_map['baseurl'] = self.baseurl
+		self.template_map['basedir'] = BASEDIR
+		self.template_map['messages'] = "[]"
+		#self.template_map['messages'] = json_encode($_SESSION['MSG'])
+		#msg_clear();
+		#session_write_close();
+		
+		self.template_map['viewname'] = viewname
+		self.template_map['viewdocument'] = self.getViewDocument(viewname)
+		
+		f = StringIO()
+		self.include(f, os.path.realpath(BASEDIR + "/lib/tpl/template.html"))
+		length = f.tell()
+		f.seek(0)
+		
+		self.send_response(200)
+		self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+		self.send_header("Content-Type", "text/html; charset=utf-8")
+		self.send_header("Content-Length", str(length))
+		self.end_headers()
+		return f
+	
+	def include(self, f, filename):
+		if not os.path.isfile(filename):
 			return
+		with open(filename, 'r') as hf:
+			self.apply_template(hf, f)
 
-		pathdir = os.path.dirname(path)
-		files = sorted(os.listdir(pathdir), key=lambda f: os.path.getmtime("{}/{}".format(pathdir, f)), reverse=True)
-		i = 0
-		for file in files:
-			i += 1
-			fullname = os.path.join(pathdir, file)
-			if i > KEEPSNAPSHOTNUM:
-				logger.info("removing old snapshot: %s", fullname)
-				os.remove(fullname)
+	def apply_template(self, fsrc, fdst):
+		while True:
+			buf = fsrc.readline()
+			if not buf:
+				break
+			buf = string.Template(buf).safe_substitute(self.template_map)
+			m = re.match(".*\<\?\s+include\((.*)\)\s+\?\>.*", buf)
+			if m:
+				self.include(fdst, m.group(1))
+				continue
+			fdst.write(buf)
 
-
+	def getAction(self):
+		return self.query.get('action', 'show')
+	
+	def getViewName(self):
+		view = self.requesturi
+		if view.startswith('/view'):
+			view = self.requesturi[len('/view'):]
+		
+		if view.endswith('/'):
+			view = view[:-1]
+			
+		view = re.sub('[^a-zA-Z0-9\/_-]', "_", view)
+		if len(view) == 0:
+			view = "/home"
+		
+		return view
+		
+	def getViewDocument(self, viewname):
+		viewdocument = os.path.realpath(BASEDIR + "/lib/views/" + viewname + ".i.html")
+		if os.path.isfile(viewdocument):
+			return viewdocument
+		return os.path.realpath(BASEDIR + "/lib/views/internal/notfound.i.html")
+		
 	def list_directory(self, path):
 		"""Helper to produce a directory listing (absent index.html).
 
@@ -185,12 +288,12 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 			with open(HEADERFILE, 'r') as hf:
 				shutil.copyfileobj(hf, f)
 		
-		f.write("<table id=\"indexlist\"><tbody>")
-		f.write("  <tr class=\"indexhead\"><th class=\"indexcolicon\"><img src=\"/theme/icons/blank.png\" alt=\"[ICO]\"></th><th class=\"indexcolname\"><a href=\"?C=N;O=D\">Name</a></th><th class=\"indexcollastmod\"><a href=\"?C=M;O=A\">Last modified</a></th><th class=\"indexcolsize\"><a href=\"?C=S;O=A\">Size</a></th></tr>")
-		f.write("  <tr class=\"parent\"><td class=\"indexcolicon\"><a href=\"%s\"><img src=\"/theme/icons/folder-home.png\" alt=\"[PARENTDIR]\"></a></td><td class=\"indexcolname\"><a href=\"%s\">Parent Directory</a></td><td class=\"indexcollastmod\">&nbsp;</td><td class=\"indexcolsize\">  - </td></tr>" % (parentpath, parentpath))
+		f.write('<table id="indexlist"><tbody>')
+		f.write('  <tr class="indexhead"><th class="indexcolicon"><img src="/theme/icons/blank.png" alt="[ICO]"></th><th class="indexcolname"><a href="?C=N;O=D">Name</a></th><th class="indexcollastmod"><a href="?C=M;O=A">Last modified</a></th><th class="indexcolsize"><a href="?C=S;O=A">Size</a></th><th class="indexcoladdon"><a href="#"></a></th></tr>')
+		f.write('  <tr class="parent"><td class="indexcolicon"><a href="%s"><img src="/theme/icons/folder-home.png" alt="[PARENTDIR]"></a></td><td class="indexcolname"><a href="%s">Parent Directory</a></td><td class="indexcollastmod">&nbsp;</td><td class="indexcolsize">  - </td><td class="indexcoladdon"></td></tr>' % (parentpath, parentpath))
 
 		for name in list:
-			fullname = os.path.join(path, name)
+			fullname = os.path.realpath(os.path.join(path, name))
 			displayname = linkname = name
 			itype = self.icon_type(fullname)
 			data = os.stat(fullname)
@@ -208,7 +311,13 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 			if os.path.isfile(fullname):
 				size = self.sizeof_fmt(data.st_size)
 
-			f.write('<tr><td class="indexcolicon"><a href="%s"><img src="/theme/icons/%s.png" alt="[DIR]"></a></td><td class="indexcolname"><a href="%s">%s</a></td><td class="indexcollastmod">%s  </td><td class="indexcolsize">%s</td></tr>\n' % (urllib.quote(linkname), itype, urllib.quote(linkname), cgi.escape(displayname), mtime, size))
+			addon = ""
+			if os.path.isfile(fullname):
+				path_snp = os.path.realpath(os.path.join(PUT_BASEDIR, "snapshot", ""))
+				if fullname.startswith(path_snp):
+					addon='<a href="/promote?parentpath=%s&filename=%s"><img src="/theme/icons/promote.png"></a>' % (displaypath, urllib.quote(displaypath + name))
+				
+			f.write('<tr><td class="indexcolicon"><a href="%s"><img src="/theme/icons/%s.png" alt="[DIR]"></a></td><td class="indexcolname"><a href="%s">%s</a></td><td class="indexcollastmod">%s  </td><td class="indexcolsize">%s</td><td class="indexcoladdon">%s</td></tr>\n' % (urllib.quote(linkname), itype, urllib.quote(linkname), cgi.escape(displayname), mtime, size, addon))
 		f.write("</tbody></table>")
 
 		# include a README.md if it exists
@@ -231,6 +340,64 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 		self.end_headers()
 		return f
 			
+	def verify_put_path(self, path):
+		path_rel = os.path.join(PUT_BASEDIR, "release", "")
+		path_snp = os.path.join(PUT_BASEDIR, "snapshot", "")
+		
+		if not (path.startswith(path_rel) or path.startswith(path_snp)):
+			raise ArtifactException(403, "Forbidden: Failed to deploy. PUT allowed into '/artifacts/snapshot' or '/artifact/release' folders only (was: %s)" % (self.path))
+
+		if os.path.isdir(path):
+			raise ArtifactException(409, "Conflict: Failed to deploy. A directory already exists with that name: '%s'" % (path))
+			
+		if path.startswith(path_rel) and os.path.isfile(path):
+			raise ArtifactException(409, "Conflict: Failed to deploy. Cannot overwrite artifacts in 'release' folder")
+
+	def remove_old_snapshots(self, path):
+		path_snp = os.path.join(PUT_BASEDIR, "snapshot", "")
+		if not path.startswith(path_snp):
+			return
+
+		pathdir = os.path.dirname(path)
+		files = {}
+		dates = set()
+		for f in os.listdir(pathdir):
+			flatdate = os.path.getmtime("{}/{}".format(pathdir, f)) // self.snapshotClusterDurationSec
+			files[f] = flatdate
+			dates.add(flatdate)
+
+		dates = sorted(dates, reverse=True)
+
+		i = 0
+		for date in dates:
+			i += 1
+			if i > self.keepSnapshotNum:
+				for file, flatdate in files.iteritems():
+					if flatdate != date:
+						continue
+					fullname = os.path.join(pathdir, file)
+					logger.info("removing old snapshot: %s", fullname)
+					os.remove(fullname)
+
+	def promoteFile(self, filename):
+		path_snp = os.path.join(PUT_BASEDIR, "snapshot", "")
+		if not filename.startswith(path_snp):
+			return
+		
+		logger.info("Promotion started: %s" % (filename))
+		relname = filename[len(path_snp):]
+		newname = os.path.realpath(os.path.join(PUT_BASEDIR, "release", relname))
+		
+		newdir = os.path.dirname(newname)
+		
+		self.verify_put_path(newname)
+		
+		if not os.path.isdir(newdir):
+			os.makedirs(newdir)
+		
+		shutil.copyfile(filename, newname)
+		logger.info("Promotion successful: %s" % filename)
+		
 	def icon_type(self, path):
 		if not hasattr(self, 'icons_map'):
 			self.icons_map = {
@@ -348,24 +515,17 @@ class ArtifactHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 			num /= 1024.0
 		return "%.1f%s%s" % (num, 'Yi', suffix)
 
-	def apply_template(self, fsrc, fdst):
-		while True:
-			buf = fsrc.readline()
-			if not buf:
-				break
-			buf = string.Template(buf).safe_substitute(self.template_map)
-			fdst.write(buf)
-
 	def log_message(self, format, *args):
 		self.accesslog.info("%s - - [%s] %s" %
 				(self.client_address[0],
 				self.log_date_time_string(),
 				format%args))
 
+		
 class webserver():
 	def __init__(self, opts=None):
 		self.opts = {}
-		self.opts['port'] = 8000
+		self.port = int(opts['port'])
 		if isinstance(opts, dict):
 			self.opts.update(opts)
 
@@ -374,8 +534,9 @@ class webserver():
 		self.ready = False
 
 	def startup(self):
-		server_address = ("", self.opts['port'])
+		server_address = ("", self.port)
 		self.server = BaseHTTPServer.HTTPServer(server_address, ArtifactHandler)
+		self.server.opts = self.opts
 
 		self.logger.info("Server Starts - %s:%s" % server_address)
 		try:
@@ -395,6 +556,23 @@ class webserver():
 	def isReady(self):
 		return self.ready
 
+
+def loadConfig(filename):
+	opts = {}
+	
+	# Load settings from defaults
+	defaultfile = os.path.join(BASEDIR, "lib/default/artifactd.conf")
+	defaultparser = ConfigParser.ConfigParser()
+	if os.path.isfile(defaultfile):
+		defaultparser.read(defaultfile)
+		opts.update(defaultparser._sections['config'])
+		
+	# Load settings from config file
+	configparser = ConfigParser.ConfigParser()
+	if os.path.isfile(filename):
+		opts.update(configparser._sections['config'])
+	
+	return opts
 
 def usage():
 #   print "1        10        20        30        40        50        60        70       80"
@@ -416,12 +594,7 @@ def main(argv):
 	except (ConfigParser.NoSectionError) as (e):
 		print "ERROR: Cannot load %s: %s" % (LOGGINGCONFIGFILE, e)
 
-	opts = {}
-	opts['port'] = 8000
-	configparser = ConfigParser.ConfigParser()
-	if os.path.isfile(CONFIGFILE):
-		configparser.read(CONFIGFILE)
-		opts['port'] = int(configparser.get("config", "port"))
+	opts = loadConfig(CONFIGFILE)
 
 	parser = optparse.OptionParser(usage="%prog [OPTIONS]", version="%prog, Version "+VERSION)
 	parser.remove_option("-h")
@@ -429,7 +602,7 @@ def main(argv):
 	parser.add_option("-h", "--help", dest="help", action="store_true")
 	parser.add_option("--version", action="version")
 	parser.add_option("-v", "--verbose", dest="verbose", action="store_true")
-	parser.add_option("--port", dest="port", type="int")
+	parser.add_option("--port", dest="port")
 
 	(options, args) = parser.parse_args(argv)
 
@@ -438,7 +611,7 @@ def main(argv):
 		return 1
 		
 	if options.port:
-		opts['port'] = int(options.port)
+		opts['port'] = options.port
 
 	server = webserver(opts)
 	server.startup()

@@ -2,7 +2,7 @@
 
 TMP=`pwd`; cd `dirname $0`; BASEDIR=`pwd`; cd $TMP
 
-DEPLOYBASE=${DEPLOYBASE-http://localhost:4070/artifacts/snapshot}
+DEPLOYURL=${DEPLOYURL-http://w01b6kly.ubsprod.msad.ubs.net:4070/artifacts/snapshot}
 
 all() {
 	download && import && zip && ipk && rpm
@@ -18,11 +18,10 @@ download() {
 	[ -f $BASEDIR/../vendor/.done ] && return
 
 	# download additional artifacts from artifactory
-
 	mkdir -p $BASEDIR/../vendor
 	cd $BASEDIR/../vendor
 	COPT="-sw%{http_code} %{url_effective}\n"
-	#curl "$COPT" -O http://odyssey.apps.csintra.net/artifactory/libs-release/com/csg/ts/security/xeng/external/apr-1.3.9-5.el6_2.x86_64.rpm
+	curl "$COPT" -O http://artifactory.local.net/artifacts/release/apr/v1.0.0/apr-1.3.9-5.el6_2.x86_64.rpm
 	touch .done
 	cd $BASEDIR
 }
@@ -107,15 +106,15 @@ rpm() {
 }
 
 deploy() {
-	echo "##### deploying to $DEPLOYBASE"
+	echo "##### deploying to $DEPLOYURL"
 
 	FULLFILES=`ls -1 $BASEDIR/RPMS/x86_64/*.{rpm,ipk,zip} 2>/dev/null`
 	[ -z "$FULLFILES" ] && echo "No packages found. Stop." && return 1
 	for FULLFILE in $FULLFILES; do
 		FILE=`basename "$FULLFILE"`
-		COMPONENT=`echo $FILE | cut -f1 -d-`
-		VERSION=`echo $FILE | cut -f2 -d-`
-		TARGET=$DEPLOYBASE/$COMPONENT/$VERSION/$FILE
+		COMPONENT=`echo $FILE | cut -f1 -d. | sed 's/-[vV0-9]*$//'`
+		VERSION=`echo $FILE | sed 's/-/ /g' | xargs -n1 | grep '[0-9]*\.[0-9]*$'`
+		TARGET=$DEPLOYURL/$COMPONENT/$VERSION/$FILE
 		curl -sS -T $FULLFILE -X PUT $TARGET | grep "Message:"
 	done
 }
@@ -163,3 +162,4 @@ _loadversion
 
 $action $*
 echo "##### done"
+
